@@ -152,7 +152,7 @@ def bone_mapping(input_poses) :
             
     return out_poses  
 
-def save_as_npz(anim: Animation, save_path: str,num_betas: int, gender: str, mocap_frame_rate: int):
+def save_as_npz(anim: Animation, save_path: str,num_betas: int, gender: str, mocap_frame_rate: int,scale: float=100):
     """
     Save the animation data to a .npz file format.
 
@@ -169,7 +169,12 @@ def save_as_npz(anim: Animation, save_path: str,num_betas: int, gender: str, moc
     
     #fps = int(amass_dict["mocap_frame_rate"])
     
-    reversed_trans_quat = quat.mul(quat.from_angle_axis(np.pi / 2, [1, 0, 0]), quat.from_angle_axis(np.pi / 2, [0, 1, 0]))
+   
+
+    #trans = amass_dict["trans"] * scale + root_pos
+
+
+    #trans_quat = quat.mul(quat.from_angle_axis(-np.pi / 2, [0, 1, 0]), quat.from_angle_axis(-np.pi / 2, [1, 0, 0]))
     
     #inverse_quat = quat.conjugate(reversed_trans_quat)
 
@@ -212,6 +217,16 @@ def save_as_npz(anim: Animation, save_path: str,num_betas: int, gender: str, moc
     out_pose_hand = out_poses[:, 75:165]
     out_pose_jaw = np.zeros([out_poses.shape[0],6])
     out_pose_eyes = np.zeros([out_poses.shape[0],6])
+
+
+
+    reversed_trans_quat = quat.mul(quat.from_angle_axis(np.pi / 2, [1, 0, 0]), quat.from_angle_axis(np.pi / 2, [0, 1, 0]))
+
+    trans = anim.trans @ quat.to_xform(reversed_trans_quat).T  # Reverse
+
+    root_pos = np.zeros([out_poses.shape[0],3]) #workout what the 
+
+    out_trans = (trans - root_pos) / scale
     
     
     amass_template= np.load('data/salsa_1_stageii.npz', allow_pickle=True)
@@ -248,7 +263,7 @@ def save_as_npz(anim: Animation, save_path: str,num_betas: int, gender: str, moc
     
     # Prepare the data for saving.
     data = {
-        "trans": anim.trans,  # Root translations (shape: [num_frames, 3])
+        "trans": out_trans,  # Root translations (shape: [num_frames, 3])
         "gender": np.array(gender),  # Gender (shape: [])
         "mocap_frame_rate": np.array(mocap_frame_rate),  # Framerate (shape: [])
         #"betas": np.ndarray(betas),  # Body shape coefficients (shape: [num_betas=16])
