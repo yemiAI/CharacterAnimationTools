@@ -105,54 +105,57 @@ def load(
 
 
 
-bone_map =[None, 1, 4, 7, None, 2,5,8,None,3,6,9,12,15,13,16,18,20,None,None,None,25,26,27,28,29,30,31,32,33,34,35,36,14,17,19,21,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51]  
+bone_mapAMASS =[0, 1, 4, 7, None, 2,5,8,None,3,6,9,12,15,13,16,18,20,None,None,None,25,26,27,28,29,30,31,32,33,34,35,36,14,17,19,21,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51] 
+    
+#bone_mapMotorica = [0,43,44,45,46,47,48,49,50,1,None,2,3,4,5,6,7,8,12,13,14,15,16,17,21,22,23,18,19,21,9,10,11,24,25,26,27,31,32,33,34,35,36,40,41,42,37,38,39,28,29,30] 
+
+#bone_mapMotorica = [0, 9, 11, 12, 13, 14, 15, 16, 17, 30, 31, 32, 18, 19, 20, 21, 22, 23, 27, 28, None, 29, 25, 26, 33, 34, 35, 36, 49, 50, 51, 37, 38, 39, 40, 41, 42, 46, 47, 48, 43, 44, 45, 1, 2, 3, 4, 5, 6, 7, 8]
+
+#bone_mapMotorica = [0, 
+
+bone_mapMotorica = [0, 9, 11, 12, 13, 14, 15, 16, 17, 30, 31, 32, 18, 19, 20, 21, 22, 23, 27, 28, None, 29, 25, 26, 33, 34, 35, 36, 49, 50, 51, 37, 38, 39, 40, 41, 42, 46, 47, 48, 43, 44, 45, 1, 2, 3, 4, 5, 6, 7, 8]
+
+#bone_mapMotorica = [None] * 51
+#bone_mapMotorica[8] = 6 
+
+def bone_innermap(mapping, output_poses, input_poses):
+    for b_from, b_to in enumerate(mapping):
+            # Adjust the mapping target index.
+            #b_to = b_toX - 1
+
+            # Check if both source and target indices are within the valid range.
+            #if 0 <= b_from < num_bones_in_input and 0 <= b_to < num_bones_in_output:
+                # If they are, copy the corresponding pose values.
+        if b_to is None :
+            pass                
+        else:
+            output_poses[:,3 * b_to: 3 * b_to + 3] = input_poses[:,3 * b_from: 3 * b_from + 3]  
 
 
 def bone_mapping(input_poses) :
-    out_poses= np.zeros([input_poses.shape[0],165])   #rearranging input poses
-    #out_poses[48:51]= input_pose[12:15] #head ..can be improved with a look up table (an array which maps the bone indices )
-    #for b_from, b_toX in enumerate(bone_map):
-        
-     #   if b_toX <= 53 :
-            
-      #      b_to = b_toX - 1
-            
-        
-       #     #print(b_to)
-        #    #print(b_from)
-        #out_poses[3*b_to: 3*b_to+3] = input_poses[3*b_from:3*b_from + 3]
-        
-        
-    #return out_poses
+
+
     # Make sure the bone_map indices are within proper range.
-    num_bones_in_input = (input_poses.shape[1]) // 3
-    num_bones_in_output =(out_poses.shape[1]) // 3
+    #num_bones_in_input = (input_poses.shape[1]) // 3
+    #num_bones_in_output =(out_poses_a.shape[1]) // 3
 
-    for b_from, b_to in enumerate(bone_map):
-        # Adjust the mapping target index.
-        #b_to = b_toX - 1
-
-        # Check if both source and target indices are within the valid range.
-        #if 0 <= b_from < num_bones_in_input and 0 <= b_to < num_bones_in_output:
-            # If they are, copy the corresponding pose values.
-            if b_to is None :
-                
-                pass
-                #out_poses[3 * b_to: 3 * b_to + 3] = 0
-            
-            else:
-                #print(out_poses.shape)
-                #print(input_poses.shape)
-                
-                out_poses[:,3 * b_to: 3 * b_to + 3] = input_poses[:,3 * b_from: 3 * b_from + 3]
-            
-            
-            
-            
+    if input_poses.shape[1] == 153:    
+        print("Converting Motorica format bvh")
+        out_poses_a = np.zeros([input_poses.shape[0],165])   #rearranging input poses
+        bone_innermap(bone_mapMotorica, out_poses_a, input_poses)
+        out_poses = np.zeros([input_poses.shape[0],165])   #rearranging input poses
+        bone_innermap(bone_mapAMASS, out_poses, out_poses_a)
+    elif(input_poses.shape[1] == 156):
+        print("Converting AMASS format bvh")
+        out_poses = np.zeros([input_poses.shape[0],165])   #rearranging input poses
+        bone_innermap(bone_mapAMASS, out_poses, input_poses)
+    else:
+        print("Can't work out input format, quitting")
+        exit(0)
             
     return out_poses  
 
-def save_as_npz(anim: Animation, save_path: str,num_betas: int, gender: str, mocap_frame_rate: int,scale: float=100):
+def save_as_npz(anim: Animation, save_path: str,num_betas: int, gender: str, mocap_frame_rate=None,scale: float=100, static= False):
     """
     Save the animation data to a .npz file format.
 
@@ -169,6 +172,7 @@ def save_as_npz(anim: Animation, save_path: str,num_betas: int, gender: str, moc
     
     #fps = int(amass_dict["mocap_frame_rate"])
     
+    reversed_trans_quat = quat.mul(quat.from_angle_axis(np.pi / 2, [1, 0, 0]), quat.from_angle_axis(np.pi / 2, [0, 1, 0]))
    
 
     #trans = amass_dict["trans"] * scale + root_pos
@@ -190,10 +194,14 @@ def save_as_npz(anim: Animation, save_path: str,num_betas: int, gender: str, moc
     
     #main_axis_angles = amass_diction["poses"]#
     
+    root_poses = quat.to_axis_angle(anim.quats[:, 0, :] * reversed_trans_quat)
+    
     axis_angles_conv = quat.to_axis_angle(anim.quats)
-    
-    
-    NUM_JOINTS = 52
+   
+    axis_angles_conv[:,0,:] = root_poses[:,:]
+   
+   
+    NUM_JOINTS = len(anim.joint_names)
     
     num_frames= anim.quats.shape[0]
     
@@ -213,20 +221,27 @@ def save_as_npz(anim: Animation, save_path: str,num_betas: int, gender: str, moc
     
     out_poses = bone_mapping(poses)
     
-    out_pose_body = out_poses[:, 3:66]
-    out_pose_hand = out_poses[:, 75:165]
-    out_pose_jaw = np.zeros([out_poses.shape[0],6])
-    out_pose_eyes = np.zeros([out_poses.shape[0],6])
+    #out_pose_body = out_poses[:, 3:66]
+    #out_pose_hand = out_poses[:, 75:165]
+    #out_pose_jaw = np.zeros([out_poses.shape[0],6])
+    #out_pose_eyes = np.zeros([out_poses.shape[0],6])
 
 
 
-    reversed_trans_quat = quat.mul(quat.from_angle_axis(np.pi / 2, [1, 0, 0]), quat.from_angle_axis(np.pi / 2, [0, 1, 0]))
 
     trans = anim.trans @ quat.to_xform(reversed_trans_quat).T  # Reverse
 
     root_pos = np.zeros([out_poses.shape[0],3]) #workout what the 
-
-    out_trans = (trans - root_pos) / scale
+    
+    
+    
+    
+    
+    
+    if static: 
+        out_trans= np.zeros_like(trans)
+    else:
+        out_trans = (trans - root_pos) / scale
     
     
     amass_template= np.load('data/salsa_1_stageii.npz', allow_pickle=True)
@@ -255,6 +270,8 @@ def save_as_npz(anim: Animation, save_path: str,num_betas: int, gender: str, moc
     markers_sim = amass_template['markers_sim']
     marker_meta = amass_template['marker_meta']
     
+    if mocap_frame_rate is None:
+        mocap_frame_rate = anim.fps
     
     # Ensure betas is in the correct shape, assuming it's not already
     #if betas.ndim == 1:
@@ -273,6 +290,8 @@ def save_as_npz(anim: Animation, save_path: str,num_betas: int, gender: str, moc
 
     # Save the data to a .npz file.
     #np.savez(save_path, **data)
-    np.savez(save_path , gender =data['gender'], mocap_framerate = data['mocap_frame_rate'], betas=betas,marker_labels = out_marker_labels, marker_data = out_marker_data, poses = out_poses, trans = data['trans'], mocap_time_length = out_mocaptime, root_orient=out_root_orient, pose_body=out_pose_body, pose_hand= out_pose_hand, pose_eyes= out_pose_eyes, latent_label=latent_labels, markers=markers, markers_obs=markers_obs, markers_sim=markers_sim, marker_meta= marker_meta,  surface_model_type= surface_model_type,labels=labels, markers_latent_vids=markers_latent_vids, markers_latent =markers_latent, num_betas=num_betas)
+    # np.savez(save_path , gender =data['gender'], mocap_framerate = data['mocap_frame_rate'], betas=betas,marker_labels = out_marker_labels, marker_data = out_marker_data, poses = out_poses, trans = data['trans'], mocap_time_length = out_mocaptime, root_orient=out_root_orient, pose_body=out_pose_body, pose_hand= out_pose_hand, pose_eyes= out_pose_eyes, latent_label=latent_labels, markers=markers, markers_obs=markers_obs, markers_sim=markers_sim, marker_meta= marker_meta,  surface_model_type= surface_model_type,labels=labels, markers_latent_vids=markers_latent_vids, markers_latent =markers_latent, num_betas=num_betas)
+    
+    np.savez(save_path , gender =data['gender'], mocap_framerate = data['mocap_frame_rate'], betas=betas,marker_labels = out_marker_labels, marker_data = out_marker_data, poses = out_poses, trans = data['trans'], mocap_time_length = out_mocaptime, root_orient=out_root_orient,latent_label=latent_labels, markers=markers, markers_obs=markers_obs, markers_sim=markers_sim, marker_meta= marker_meta,  surface_model_type= surface_model_type,labels=labels, markers_latent_vids=markers_latent_vids, markers_latent =markers_latent, num_betas=num_betas)
 
     print(f"Data saved at {save_path}")
